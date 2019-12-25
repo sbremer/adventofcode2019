@@ -1,8 +1,12 @@
 from typing import List, Tuple, Dict, Callable
 
 
-def run_intcode(data: List[int], input_int: int = None) -> Tuple[List[int], List[int]]:
+def run_intcode(data: List[int], input_ints: List[int] = None) -> Tuple[List[int], List[int]]:
+
+    data = data.copy()
+
     at = 0
+    input_at = 0
 
     output = []
 
@@ -73,8 +77,10 @@ def run_intcode(data: List[int], input_int: int = None) -> Tuple[List[int], List
         data[pos_result] = p1 * p2
 
     def opt_3():
+        nonlocal input_at
         p1 = get_param(True)
-        data[p1] = input_int
+        data[p1] = input_ints[input_at]
+        input_at += 1
 
     def opt_4():
         p1 = get_param()
