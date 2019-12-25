@@ -1,14 +1,17 @@
 from typing import List, Tuple, Dict, Callable
 
+from collections import defaultdict
+
 
 class Processor:
     def __init__(self, program: List[int]):
-        self.data = program.copy()
+        data = {i: d for i, d in enumerate(program)}
+        self.data = defaultdict(int, data)
         self.at = 0
         self.opt = 0
-        self.p1_mode = -1
-        self.p2_mode = -1
+        self.p_mode = [-1, -1, -1]
         self.input = None
+        self.base = 0
 
         self.opt_codes: Dict[int, Callable] = {
             1: self.opt_1,
@@ -19,14 +22,28 @@ class Processor:
             6: self.opt_6,
             7: self.opt_7,
             8: self.opt_8,
+            9: self.opt_9,
         }
 
-    def get_param(self, always_immediate: bool = False) -> int:
+    def get_address(self, p_at: int = 0) -> int:
+        if self.p_mode[p_at] == 0:
+            p_addr = self.data[self.at]
+        elif self.p_mode[p_at] == 2:
+            p_addr = self.data[self.at] + self.base
+        else:
+            raise ValueError(f'Unknown parameter mode: {self.p_mode[p_at]}')
 
-        if self.p1_mode == 1 or always_immediate:
-            p1 = self.data[self.at]
-        elif self.p1_mode == 0:
+        self.at += 1
+
+        return p_addr
+
+    def get_param(self, p_at: int = 0) -> int:
+        if self.p_mode[p_at] == 0:
             p1 = self.data[self.data[self.at]]
+        elif self.p_mode[p_at] == 1:
+            p1 = self.data[self.at]
+        elif self.p_mode[p_at] == 2:
+            p1 = self.data[self.data[self.at] + self.base]
         else:
             raise ValueError(f'Unknown parameter mode: {self.p1_mode}')
 
@@ -36,19 +53,23 @@ class Processor:
 
     def get_params_2(self) -> Tuple[int, int]:
 
-        if self.p1_mode == 0:
+        if self.p_mode[0] == 0:
             p1 = self.data[self.data[self.at]]
-        elif self.p1_mode == 1:
+        elif self.p_mode[0] == 1:
             p1 = self.data[self.at]
+        elif self.p_mode[0] == 2:
+            p1 = self.data[self.data[self.at] + self.base]
         else:
             raise ValueError(f'Unknown parameter mode: {self.p1_mode}')
 
-        if self.p2_mode == 0:
+        if self.p_mode[1] == 0:
             p2 = self.data[self.data[self.at + 1]]
-        elif self.p2_mode == 1:
+        elif self.p_mode[1] == 1:
             p2 = self.data[self.at + 1]
+        elif self.p_mode[1] == 2:
+            p2 = self.data[self.data[self.at + 1] + self.base]
         else:
-            raise ValueError(f'Unknown parameter mode: {self.p2_mode}')
+            raise ValueError(f'Unknown parameter mode: {self.p_mode[1] }')
 
         self.at += 2
 
@@ -56,7 +77,7 @@ class Processor:
 
     def get_params_3(self) -> Tuple[int, int, int]:
         p1, p2 = self.get_params_2()
-        pos_result = self.get_param(True)
+        pos_result = self.get_address(2)
 
         return p1, p2, pos_result
 
@@ -69,7 +90,7 @@ class Processor:
         self.data[pos_result] = p1 * p2
 
     def opt_3(self):
-        p1 = self.get_param(True)
+        p1 = self.get_address()
         self.data[p1] = self.input
 
     def opt_4(self):
@@ -100,11 +121,16 @@ class Processor:
         else:
             self.data[pos_result] = 0
 
+    def opt_9(self):
+        p1 = self.get_param()
+        self.base += p1
+
     def get_opt(self):
         opt_raw = self.data[self.at]
         self.opt = opt_raw % 100
-        self.p1_mode = (opt_raw // 100) % 10
-        self.p2_mode = (opt_raw // 1000) % 10
+        self.p_mode[0] = (opt_raw // 100) % 10
+        self.p_mode[1] = (opt_raw // 1000) % 10
+        self.p_mode[2] = (opt_raw // 10000) % 10
         self.at += 1
 
     def run_step(self):
@@ -138,3 +164,17 @@ class Processor:
                 break
 
         return result
+
+    def run(self, input_int: int = None) -> List[int]:
+        self.input = input_int
+
+        output = []
+
+        while True:
+            result = self.run_step()
+            if result is not None:
+                output.append(result)
+            if self.opt == 99:
+                break
+
+        return output
